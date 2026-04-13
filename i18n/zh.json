@@ -12,6 +12,9 @@
     "title": "设置",
     "disclaimer": "所有设置本地保存",
     "save": "保存",
+    "importConfig": "导入配置",
+    "exportConfig": "导出配置",
+    "importSuccess": "导入成功",
     "ai": {
       "provider": "AI 服务",
       "apiKey": "API 密钥",
