@@ -1,5 +1,7 @@
 # Deep Research Web
 
+## 增加配置文件导入/导出功能
+
 本项目是 https://github.com/dzhng/deep-research 的可视化版本，并做了一些改进。
 
 特色：
