@@ -12,6 +12,9 @@
     "title": "Settings",
     "disclaimer": "Settings are stored locally in your browser.",
     "save": "Save",
+    "importConfig": "Import Config",
+    "exportConfig": "Export Config",
+    "importSuccess": "Import successful",
     "ai": {
       "provider": "AI Provider",
       "apiKey": "API Key",
