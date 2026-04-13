@@ -8,10 +8,29 @@
     data: OpenAICompatibleModel[]
   }
 
-  const { config, aiApiBase, webSearchApiBase, showConfigManager: showModal } = storeToRefs(useConfigStore())
+  const {
+    config,
+    aiApiBase,
+    webSearchApiBase,
+    showConfigManager: showModal,
+  } = storeToRefs(useConfigStore())
   const { t } = useI18n()
   const runtimeConfig = useRuntimeConfig()
   const isServerMode = computed(() => runtimeConfig.public.serverMode)
+
+  // Server mode configuration
+  const serverConfig = computed(() => ({
+    aiProvider: runtimeConfig.public.aiProvider,
+    aiModel: runtimeConfig.public.aiModel,
+    aiContextSize: runtimeConfig.public.aiContextSize,
+    webSearchProvider: runtimeConfig.public.webSearchProvider,
+    webSearchConcurrencyLimit: runtimeConfig.public.webSearchConcurrencyLimit,
+    webSearchSearchLanguage: runtimeConfig.public.webSearchSearchLanguage,
+    tavilyAdvancedSearch: runtimeConfig.public.tavilyAdvancedSearch,
+    tavilySearchTopic: runtimeConfig.public.tavilySearchTopic,
+    googlePseId: runtimeConfig.public.googlePseId,
+  }))
+
 
   const loadingAiModels = ref(false)
   const aiModelOptions = ref<string[]>([])
@@ -105,9 +124,13 @@
     },
   ])
   const tavilySearchTopicOptions = ['general', 'news', 'finance']
-  const selectedAiProvider = computed(() => aiProviderOptions.value.find((o) => o.value === config.value.ai.provider))
+  const selectedAiProvider = computed(() =>
+    aiProviderOptions.value.find((o) => o.value === config.value.ai.provider),
+  )
   const selectedWebSearchProvider = computed(() =>
-    webSearchProviderOptions.value.find((o) => o.value === config.value.webSearch.provider),
+    webSearchProviderOptions.value.find(
+      (o) => o.value === config.value.webSearch.provider,
+    ),
   )
 
   // Try to find available AI models based on selected provider
@@ -116,18 +139,26 @@
 
     try {
       loadingAiModels.value = true
-      const result = await $fetch<OpenAICompatibleModelsResponse>(`${aiApiBase.value}/models`, {
-        headers: {
-          Authorization: `Bearer ${config.value.ai.apiKey}`,
+      const result = await $fetch<OpenAICompatibleModelsResponse>(
+        `${aiApiBase.value}/models`,
+        {
+          headers: {
+            Authorization: `Bearer ${config.value.ai.apiKey}`,
+          },
         },
-      })
-      console.log(`Found ${result.data.length} AI models for provider ${config.value.ai.provider}`)
+      )
+      console.log(
+        `Found ${result.data.length} AI models for provider ${config.value.ai.provider}`,
+      )
       aiModelOptions.value = result.data.map((m) => m.id)
       isLoadAiModelsFailed.value = false
 
       if (aiModelOptions.value.length) {
         // Auto-select the current model
-        if (config.value.ai.model && !aiModelOptions.value.includes(config.value.ai.model)) {
+        if (
+          config.value.ai.model &&
+          !aiModelOptions.value.includes(config.value.ai.model)
+        ) {
           aiModelOptions.value.unshift(config.value.ai.model)
         }
       }
@@ -147,7 +178,12 @@
 
   // Automatically fetch AI models list
   watch(
-    () => [config.value.ai.provider, config.value.ai.apiKey, config.value.ai.apiBase, showModal.value],
+    () => [
+      config.value.ai.provider,
+      config.value.ai.apiKey,
+      config.value.ai.apiBase,
+      showModal.value,
+    ],
     () => {
       if (!showModal.value || isServerMode.value) return
       debouncedListAiModels()
@@ -177,6 +213,56 @@
     },
   )
 
+  // ---- Config Import / Export ----
+  const importError = ref('')
+  const importSuccess = ref(false)
+  const fileInputRef = ref<HTMLInputElement | null>(null)
+
+  function exportConfig() {
+    const exportData = JSON.parse(JSON.stringify(config.value))
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'deep-research-config.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function triggerImport() {
+    importError.value = ''
+    importSuccess.value = false
+    fileInputRef.value?.click()
+  }
+
+  function onImportFile(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string)
+        // Basic structure validation
+        if (!parsed.ai || !parsed.webSearch) {
+          throw new Error('Invalid config: missing ai or webSearch fields')
+        }
+        // Merge into localConfig
+        Object.assign(config.value, parsed)
+        importSuccess.value = true
+        importError.value = ''
+        setTimeout(() => (importSuccess.value = false), 3000)
+      } catch (err: any) {
+        importError.value = err.message || 'Failed to parse config file'
+      } finally {
+        // Reset file input so same file can be re-imported
+        if (fileInputRef.value) fileInputRef.value.value = ''
+      }
+    }
+    reader.readAsText(file)
+  }
+
   defineExpose({
     show() {
       showModal.value = true
@@ -190,13 +276,22 @@
       <UButton icon="i-lucide-settings" />
 
       <template #body>
-        <UAccordion v-model="activeSections" type="multiple" :items="settingSections" collapsible>
+        <UAccordion
+          v-model="activeSections"
+          type="multiple"
+          :items="settingSections"
+          collapsible
+        >
           <!-- AI provider -->
           <template #ai>
             <div class="flex flex-col gap-y-2 mb-2">
               <UFormField>
                 <template v-if="selectedAiProvider?.help" #help>
-                  <i18n-t class="whitespace-pre-wrap" :keypath="selectedAiProvider.help" tag="span">
+                  <i18n-t
+                    class="whitespace-pre-wrap"
+                    :keypath="selectedAiProvider.help"
+                    tag="span"
+                  >
                     <UButton
                       v-if="selectedAiProvider.link"
                       class="!p-0"
@@ -204,7 +299,9 @@
                       target="_blank"
                       variant="link"
                     >
-                      {{ selectedAiProvider.linkText || selectedAiProvider.link }}
+                      {{
+                        selectedAiProvider.linkText || selectedAiProvider.link
+                      }}
                     </UButton>
                   </i18n-t>
                 </template>
@@ -215,7 +312,10 @@
                   :disabled="isServerMode"
                 />
               </UFormField>
-              <UFormField :label="$t('settings.ai.apiKey')" :required="config.ai.provider !== 'ollama'">
+              <UFormField
+                :label="$t('settings.ai.apiKey')"
+                :required="config.ai.provider !== 'ollama'"
+              >
                 <PasswordInput
                   v-model="config.ai.apiKey"
                   class="w-full"
@@ -224,7 +324,12 @@
                 />
               </UFormField>
               <UFormField :label="$t('settings.ai.apiBase')">
-                <UInput v-model="config.ai.apiBase" class="w-full" :placeholder="aiApiBase" :disabled="isServerMode" />
+                <UInput
+                  v-model="config.ai.apiBase"
+                  class="w-full"
+                  :placeholder="aiApiBase"
+                  :disabled="isServerMode"
+                />
               </UFormField>
               <UFormField :label="$t('settings.ai.model')" required>
                 <UInputMenu
@@ -268,8 +373,17 @@
             <div class="flex flex-col gap-y-2">
               <UFormField>
                 <template #help>
-                  <i18n-t v-if="selectedWebSearchProvider?.help" :keypath="selectedWebSearchProvider.help" tag="p">
-                    <UButton class="!p-0" :to="selectedWebSearchProvider.link" target="_blank" variant="link">
+                  <i18n-t
+                    v-if="selectedWebSearchProvider?.help"
+                    :keypath="selectedWebSearchProvider.help"
+                    tag="p"
+                  >
+                    <UButton
+                      class="!p-0"
+                      :to="selectedWebSearchProvider.link"
+                      target="_blank"
+                      variant="link"
+                    >
                       {{ selectedWebSearchProvider.link }}
                     </UButton>
                   </i18n-t>
@@ -281,7 +395,10 @@
                   :disabled="isServerMode"
                 />
               </UFormField>
-              <UFormField :label="$t('settings.webSearch.apiKey')" :required="!config.webSearch.apiBase">
+              <UFormField
+                :label="$t('settings.webSearch.apiKey')"
+                :required="!config.webSearch.apiBase"
+              >
                 <PasswordInput
                   v-model="config.webSearch.apiKey"
                   class="w-full"
@@ -291,11 +408,20 @@
               </UFormField>
 
               <template v-if="config.webSearch.provider === 'google-pse'">
-                <UFormField :label="$t('settings.webSearch.providers.google-pse.pseIdLabel')" required>
+                <UFormField
+                  :label="
+                    $t('settings.webSearch.providers.google-pse.pseIdLabel')
+                  "
+                  required
+                >
                   <UInput
                     v-model="config.webSearch.googlePseId"
                     class="w-full"
-                    :placeholder="$t('settings.webSearch.providers.google-pse.pseIdPlaceholder')"
+                    :placeholder="
+                      $t(
+                        'settings.webSearch.providers.google-pse.pseIdPlaceholder',
+                      )
+                    "
                     :disabled="isServerMode"
                   />
                 </UFormField>
@@ -314,7 +440,11 @@
               </UFormField>
               <UFormField :label="$t('settings.webSearch.queryLanguage')">
                 <template #help>
-                  <i18n-t class="whitespace-pre-wrap" keypath="settings.webSearch.queryLanguageHelp" tag="p" />
+                  <i18n-t
+                    class="whitespace-pre-wrap"
+                    keypath="settings.webSearch.queryLanguageHelp"
+                    tag="p"
+                  />
                 </template>
                 <LangSwitcher
                   :value="config.webSearch.searchLanguage"
@@ -342,14 +472,23 @@
               <!-- Tavily-specific settings -->
               <template v-if="config.webSearch.provider === 'tavily'">
                 <UFormField
-                  :label="$t('settings.webSearch.providers.tavily.advancedSearch')"
-                  :help="$t('settings.webSearch.providers.tavily.advancedSearchHelp')"
+                  :label="
+                    $t('settings.webSearch.providers.tavily.advancedSearch')
+                  "
+                  :help="
+                    $t('settings.webSearch.providers.tavily.advancedSearchHelp')
+                  "
                 >
-                  <USwitch v-model="config.webSearch.tavilyAdvancedSearch" :disabled="isServerMode" />
+                  <USwitch
+                    v-model="config.webSearch.tavilyAdvancedSearch"
+                    :disabled="isServerMode"
+                  />
                 </UFormField>
                 <UFormField
                   :label="$t('settings.webSearch.providers.tavily.searchTopic')"
-                  :help="$t('settings.webSearch.providers.tavily.searchTopicHelp')"
+                  :help="
+                    $t('settings.webSearch.providers.tavily.searchTopicHelp')
+                  "
                 >
                   <USelect
                     v-model="config.webSearch.tavilySearchTopic"
@@ -366,13 +505,55 @@
       </template>
 
       <template #footer>
-        <div class="flex items-center justify-between gap-2 w-full">
-          <p class="text-sm text-gray-500">
-            {{ isServerMode ? $t('serverMode.configNotice') : $t('settings.disclaimer') }}
-          </p>
-          <UButton v-if="!isServerMode" color="primary" icon="i-lucide-check" @click="showModal = false">
-            {{ $t('settings.save') }}
-          </UButton>
+        <div class="flex flex-col gap-2 w-full">
+          <!-- Import / Export row -->
+          <div v-if="!isServerMode" class="flex items-center gap-2">
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="application/json,.json"
+              class="hidden"
+              @change="onImportFile"
+            />
+            <UButton
+              variant="outline"
+              icon="i-lucide-upload"
+              size="sm"
+              @click="triggerImport"
+            >
+              {{ $t('settings.importConfig', '导入配置') }}
+            </UButton>
+            <UButton
+              variant="outline"
+              icon="i-lucide-download"
+              size="sm"
+              @click="exportConfig"
+            >
+              {{ $t('settings.exportConfig', '导出配置') }}
+            </UButton>
+            <span v-if="importSuccess" class="text-xs text-green-500 flex items-center gap-1">
+              <UIcon name="i-lucide-check-circle" />
+              {{ $t('settings.importSuccess', '导入成功') }}
+            </span>
+            <span v-if="importError" class="text-xs text-red-500 flex items-center gap-1">
+              <UIcon name="i-lucide-alert-circle" />
+              {{ importError }}
+            </span>
+          </div>
+          <!-- Original footer row -->
+          <div class="flex items-center justify-between gap-2 w-full">
+            <p class="text-sm text-gray-500">
+              {{ isServerMode ? $t('serverMode.configNotice') : $t('settings.disclaimer') }}
+            </p>
+            <UButton
+              v-if="!isServerMode"
+              color="primary"
+              icon="i-lucide-check"
+              @click="showModal = false"
+            >
+              {{ $t('settings.save') }}
+            </UButton>
+          </div>
         </div>
       </template>
     </UModal>
