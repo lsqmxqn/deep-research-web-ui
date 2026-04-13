@@ -12,6 +12,9 @@
     "title": "Instellingen",
     "disclaimer": "Instellingen zijn lokaal opgeslagen in de browser.",
     "save": "Opslaan",
+    "importConfig": "Import Config",
+    "exportConfig": "Export Config",
+    "importSuccess": "Import geslaagd",
     "ai": {
       "provider": "AI Provider",
       "apiKey": "API sleutel",
