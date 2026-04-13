@@ -1,5 +1,7 @@
 # Deep Research Web UI
 
+##Add configuration file import/export functionality
+
 [English | [中文](README_zh.md)]
 
 This is a web UI for https://github.com/dzhng/deep-research, with several improvements and fixes.
